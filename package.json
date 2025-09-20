@@ -1,0 +1,49 @@
+{
+    "name": "python-command-terminal",
+    "version": "1.0.0",
+    "description": "A fully functioning command terminal built in Python for CodeMate Hackathon",
+    "main": "index.py",
+    "scripts": {
+        "start": "python index.py",
+        "demo": "python demo.py",
+        "test": "python test.py",
+        "install": "pip install -r requirements.txt"
+    },
+    "keywords": [
+        "terminal",
+        "command-line",
+        "shell",
+        "python",
+        "codemate",
+        "hackathon"
+    ],
+    "author": "CodeMate Hackathon Participant",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/codemate-hackathon/python-terminal"
+    },
+    "engines": {
+        "python": ">=3.7"
+    },
+    "dependencies": {
+        "psutil": ">=5.9.0",
+        "colorama": ">=0.4.6",
+        "tabulate": ">=0.9.0"
+    },
+    "codemate": {
+        "buildCommand": "pip install -r requirements.txt",
+        "startCommand": "python index.py",
+        "testCommand": "python test.py",
+        "demoCommand": "python demo.py",
+        "environment": "python",
+        "features": [
+            "file-operations",
+            "directory-navigation",
+            "system-monitoring",
+            "cross-platform",
+            "error-handling",
+            "command-history"
+        ]
+    }
+}
