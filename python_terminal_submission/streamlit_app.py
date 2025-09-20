@@ -149,10 +149,40 @@ Command:"""
     def parse_with_fallback_patterns(self, command):
         """Fallback pattern matching for basic natural language processing."""
         cmd_lower = command.lower().strip()
+        original_words = command.split()
         
         # File counting patterns
         if any(phrase in cmd_lower for phrase in ['count', 'how many', 'number of files', 'files count']):
             return 'count'
+        
+        # File/directory deletion patterns
+        if any(phrase in cmd_lower for phrase in ['delete', 'remove', 'del']):
+            if 'folder' in cmd_lower or 'directory' in cmd_lower:
+                # Find folder name
+                words = cmd_lower.split()
+                for i, word in enumerate(words):
+                    if word in ['named', 'called'] and i + 1 < len(original_words):
+                        return f'rmdir {original_words[i + 1].strip("\"\'")}'
+                    elif word in ['folder', 'directory'] and i + 1 < len(original_words):
+                        next_word = original_words[i + 1].strip("\"\'")
+                        if next_word not in ['named', 'called']:
+                            return f'rmdir {next_word}'
+                return 'rmdir temp'
+            else:
+                # Find file name
+                words = cmd_lower.split()
+                for i, word in enumerate(words):
+                    if word in ['named', 'called'] and i + 1 < len(original_words):
+                        return f'rm {original_words[i + 1].strip("\"\'")}'
+                    elif word == 'file' and i + 1 < len(original_words):
+                        next_word = original_words[i + 1].strip("\"\'")
+                        if next_word not in ['named', 'called']:
+                            return f'rm {next_word}'
+                # Look for any filename-like words
+                for word in original_words:
+                    if '.' in word and not word.startswith('.'):
+                        return f'rm {word.strip("\"\'")}'
+                return 'rm temp.txt'
         
         # File creation patterns
         if 'create' in cmd_lower or 'make' in cmd_lower:
@@ -161,26 +191,92 @@ Command:"""
                 filename = None
                 
                 for i, word in enumerate(words):
-                    if word in ['named', 'called'] and i + 1 < len(words):
-                        filename = words[i + 1].strip('"\'')
+                    if word in ['named', 'called'] and i + 1 < len(original_words):
+                        filename = original_words[i + 1].strip('"\'')
                         break
-                    elif word == 'file' and i + 1 < len(words) and words[i + 1] not in ['named', 'called']:
-                        filename = words[i + 1].strip('"\'')
+                    elif word == 'file' and i + 1 < len(original_words) and original_words[i + 1].lower() not in ['named', 'called']:
+                        filename = original_words[i + 1].strip('"\'')
                         break
+                
+                # Look for filename-like words (with extensions)
+                if not filename:
+                    for word in original_words:
+                        if '.' in word and not word.startswith('.'):
+                            filename = word.strip('"\'')
+                            break
                 
                 if filename:
                     if not '.' in filename:
                         if 'python' in cmd_lower:
                             filename += '.py'
-                        elif 'txt' in cmd_lower:
+                        elif 'txt' in cmd_lower or 'text' in cmd_lower:
+                            filename += '.txt'
+                        elif 'html' in cmd_lower:
+                            filename += '.html'
+                        elif 'css' in cmd_lower:
+                            filename += '.css'
+                        elif 'js' in cmd_lower or 'javascript' in cmd_lower:
+                            filename += '.js'
+                        else:
                             filename += '.txt'
                     return f'touch {filename}'
                 return 'touch newfile.txt'
             elif 'folder' in cmd_lower or 'directory' in cmd_lower:
-                return 'mkdir newfolder'
+                words = cmd_lower.split()
+                dirname = None
+                
+                for i, word in enumerate(words):
+                    if word in ['named', 'called'] and i + 1 < len(original_words):
+                        dirname = original_words[i + 1].strip('"\'')
+                        break
+                    elif word in ['folder', 'directory'] and i + 1 < len(original_words):
+                        next_word = original_words[i + 1].strip('"\'')
+                        if next_word.lower() not in ['named', 'called']:
+                            dirname = next_word
+                            break
+                
+                return f'mkdir {dirname}' if dirname else 'mkdir newfolder'
+        
+        # File content writing patterns
+        if 'write' in cmd_lower and ('to' in cmd_lower or 'in' in cmd_lower):
+            words = original_words
+            filename = None
+            
+            # Find filename after "to" or "in"
+            for i, word in enumerate(words):
+                if word.lower() in ['to', 'in'] and i + 1 < len(words):
+                    filename = words[i + 1].strip('"\'')
+                    break
+            
+            if not filename:
+                # Look for filename-like words
+                for word in words:
+                    if '.' in word and not word.startswith('.'):
+                        filename = word.strip('"\'')
+                        break
+            
+            if filename:
+                # Extract content before "to" or "in"
+                content_parts = []
+                collecting = False
+                for word in words:
+                    if word.lower() == 'write':
+                        collecting = True
+                        continue
+                    elif word.lower() in ['to', 'in']:
+                        break
+                    elif collecting:
+                        content_parts.append(word)
+                
+                content = ' '.join(content_parts).strip('"\'')
+                return f'echo {content} > {filename}' if content else f'touch {filename}'
         
         # Listing patterns
-        if any(phrase in cmd_lower for phrase in ['show', 'list', 'what files', 'see files']):
+        if any(phrase in cmd_lower for phrase in ['show', 'list', 'what files', 'see files', 'display files']):
+            return 'ls'
+        
+        # Directory listing patterns
+        if any(phrase in cmd_lower for phrase in ['what\'s here', 'what is here', 'contents']):
             return 'ls'
         
         return None
@@ -215,6 +311,17 @@ Command:"""
             return self.cmd_cat(args[1:])
         elif command in ['rm', 'del'] and len(args) > 1:
             return self.cmd_rm(args[1:])
+        elif command == 'rmdir' and len(args) > 1:
+            if '-r' in args:
+                # Force removal
+                dirs = [arg for arg in args[1:] if arg != '-r']
+                return self.cmd_rmdir_force(dirs)
+            else:
+                return self.cmd_rmdir(args[1:])
+        elif command == 'echo':
+            return self.cmd_echo(args[1:])
+        elif command == 'edit' and len(args) > 1:
+            return self.cmd_edit(args[1:])
         elif command == 'clear':
             st.session_state.terminal_output = []
             return "Screen cleared"
@@ -267,9 +374,13 @@ Command:"""
 **File Operations:**
 • `ls`, `dir` - List directory contents
 • `mkdir <name>` - Create directory  
+• `rmdir <name>` - Remove empty directory
+• `rmdir -r <name>` - Force remove directory and contents
 • `touch <file>` - Create or update file
 • `cat <file>` - View file contents
 • `rm <file>` - Remove file
+• `echo <text> > <file>` - Write text to file
+• `edit <file> [content]` - Create/edit file with content
 • `count` - Count files and directories
 
 **System:**
@@ -281,8 +392,11 @@ Command:"""
 
 **Natural Language Examples:**
 • "create a file called test.py"
-• "how many files are here"
+• "delete the file named old.txt"
 • "make a folder named project"
+• "remove the directory called temp"
+• "write hello world to greeting.txt"
+• "how many files are here"
 • "show me the files"
         """
         return help_text
@@ -349,6 +463,41 @@ Command:"""
                 results.append(f"❌ Error reading file {filename}: {e}")
         return "\n".join(results)
 
+    def cmd_echo(self, args):
+        """Write content to file or display text."""
+        if len(args) < 3 or ">" not in args:
+            # Just display text
+            return " ".join(args)
+        
+        # Find the ">" operator
+        try:
+            redirect_index = args.index(">")
+            content = " ".join(args[:redirect_index])
+            filename = args[redirect_index + 1] if redirect_index + 1 < len(args) else "output.txt"
+            
+            path = os.path.join(self.current_directory, filename)
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            return f"✅ Content written to {filename}"
+        except Exception as e:
+            return f"❌ Error writing to file: {e}"
+
+    def cmd_edit(self, args):
+        """Simple file editor - creates file with content."""
+        if len(args) < 1:
+            return "❌ Usage: edit <filename> [content]"
+        
+        filename = args[0]
+        content = " ".join(args[1:]) if len(args) > 1 else ""
+        
+        try:
+            path = os.path.join(self.current_directory, filename)
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            return f"✅ File '{filename}' created/edited with content"
+        except Exception as e:
+            return f"❌ Error editing file {filename}: {e}"
+
     def cmd_rm(self, args):
         """Remove files."""
         results = []
@@ -358,10 +507,46 @@ Command:"""
                 if os.path.isfile(path):
                     os.remove(path)
                     results.append(f"✅ File removed: {filename}")
+                elif os.path.isdir(path):
+                    results.append(f"❌ Cannot remove directory {filename} with rm. Use 'rmdir {filename}' instead.")
                 else:
                     results.append(f"❌ File not found: {filename}")
             except Exception as e:
                 results.append(f"❌ Error removing file {filename}: {e}")
+        return "\n".join(results)
+
+    def cmd_rmdir(self, args):
+        """Remove directories."""
+        results = []
+        for dirname in args:
+            try:
+                path = os.path.join(self.current_directory, dirname)
+                if os.path.isdir(path):
+                    # Check if directory is empty
+                    if os.listdir(path):
+                        results.append(f"❌ Directory not empty: {dirname}. Use 'rmdir -r {dirname}' to force removal.")
+                    else:
+                        os.rmdir(path)
+                        results.append(f"✅ Directory removed: {dirname}")
+                else:
+                    results.append(f"❌ Directory not found: {dirname}")
+            except Exception as e:
+                results.append(f"❌ Error removing directory {dirname}: {e}")
+        return "\n".join(results)
+
+    def cmd_rmdir_force(self, args):
+        """Force remove directories and their contents."""
+        results = []
+        for dirname in args:
+            try:
+                path = os.path.join(self.current_directory, dirname)
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                    results.append(f"✅ Directory and contents removed: {dirname}")
+                else:
+                    results.append(f"❌ Directory not found: {dirname}")
+            except Exception as e:
+                results.append(f"❌ Error removing directory {dirname}: {e}")
         return "\n".join(results)
 
     def cmd_count(self):
@@ -437,12 +622,54 @@ def main():
             "help",
             "ls",
             "count",
-            "create a file called demo.txt",
-            "how many files are here"
         ]
         
         for cmd in quick_commands:
             if st.button(f"`{cmd}`", key=f"quick_{cmd}"):
+                result = terminal.execute_command(cmd)
+                if result:
+                    st.session_state.terminal_output.append(f"$ {cmd}")
+                    st.session_state.terminal_output.append(result)
+                st.rerun()
+        
+        st.header("📁 File Manager")
+        
+        # Create file section
+        st.subheader("Create File")
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            new_filename = st.text_input("Filename:", placeholder="example.txt", key="new_file")
+        with col2:
+            if st.button("Create", key="create_file") and new_filename:
+                result = terminal.execute_command(f"touch {new_filename}")
+                st.session_state.terminal_output.append(f"$ touch {new_filename}")
+                st.session_state.terminal_output.append(result)
+                st.rerun()
+        
+        # Create directory section
+        st.subheader("Create Directory")
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            new_dirname = st.text_input("Directory name:", placeholder="newfolder", key="new_dir")
+        with col2:
+            if st.button("Create", key="create_dir") and new_dirname:
+                result = terminal.execute_command(f"mkdir {new_dirname}")
+                st.session_state.terminal_output.append(f"$ mkdir {new_dirname}")
+                st.session_state.terminal_output.append(result)
+                st.rerun()
+        
+        # Natural language examples
+        st.header("🤖 Try Natural Language")
+        natural_examples = [
+            "create a file called demo.txt",
+            "make a python file named script.py",
+            "delete the file test.txt",
+            "write hello world to greeting.txt",
+            "how many files are here"
+        ]
+        
+        for cmd in natural_examples:
+            if st.button(f"💬 {cmd}", key=f"natural_{hash(cmd)}"):
                 result = terminal.execute_command(cmd)
                 if result:
                     st.session_state.terminal_output.append(f"$ {cmd}")
