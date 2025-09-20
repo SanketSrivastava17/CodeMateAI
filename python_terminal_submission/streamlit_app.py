@@ -151,6 +151,20 @@ Command:"""
         cmd_lower = command.lower().strip()
         original_words = command.split()
         
+        # Handle simple direct commands first: "delete filename", "remove filename", etc.
+        if len(original_words) == 2:
+            action = original_words[0].lower()
+            target = original_words[1]
+            
+            if action in ['delete', 'remove', 'del']:
+                return f'rm {target}'
+            elif action in ['create', 'make']:
+                return f'touch {target}'
+            elif action in ['mkdir']:
+                return f'mkdir {target}'
+            elif action in ['rmdir']:
+                return f'rmdir {target}'
+        
         # File counting patterns
         if any(phrase in cmd_lower for phrase in ['count', 'how many', 'number of files', 'files count']):
             return 'count'
@@ -169,7 +183,12 @@ Command:"""
                             return f'rmdir {next_word}'
                 return 'rmdir temp'
             else:
-                # Find file name
+                # Find file name - prioritize filename-like words first
+                for word in original_words:
+                    if '.' in word and not word.startswith('.') and word.lower() not in ['delete', 'remove', 'del', 'file', 'the']:
+                        return f'rm {word.strip("\"\'")}'
+                
+                # Then look for patterns with keywords
                 words = cmd_lower.split()
                 for i, word in enumerate(words):
                     if word in ['named', 'called'] and i + 1 < len(original_words):
@@ -178,10 +197,15 @@ Command:"""
                         next_word = original_words[i + 1].strip("\"\'")
                         if next_word not in ['named', 'called']:
                             return f'rm {next_word}'
-                # Look for any filename-like words
-                for word in original_words:
-                    if '.' in word and not word.startswith('.'):
-                        return f'rm {word.strip("\"\'")}'
+                
+                # Look for any word after delete/remove that's not a common word
+                delete_words = ['delete', 'remove', 'del']
+                for i, word in enumerate(words):
+                    if word in delete_words and i + 1 < len(original_words):
+                        next_word = original_words[i + 1].strip("\"\'")
+                        if next_word not in ['the', 'a', 'an', 'file', 'named', 'called']:
+                            return f'rm {next_word}'
+                
                 return 'rm temp.txt'
         
         # File creation patterns
