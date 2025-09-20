@@ -83,7 +83,7 @@ class PythonTerminal:
         self.gemini_api_key = (
             os.getenv('GEMINI_API_KEY') or 
             os.getenv('GOOGLE_API_KEY') or
-            "AIzaSyAy8zh81tSHZ59rYvtKb3hbvYoa7b6psDg" or  # Fallback API key (may need replacement)
+            "AIzaSyCdsKsWvlV79HLSjQ69gk8qBC1oWjTNukI" or  # Fallback API key (may need replacement)
             getattr(self, 'manual_api_key', None)
         )
         

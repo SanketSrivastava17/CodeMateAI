@@ -38,7 +38,7 @@ class WebTerminal:
         self.gemini_api_key = (
             os.getenv('GEMINI_API_KEY') or 
             st.secrets.get('GEMINI_API_KEY', None) if hasattr(st, 'secrets') else None or
-            "AIzaSyAy8zh81tSHZ59rYvtKb3hbvYoa7b6psDg"  # Fallback key
+            "AIzaSyCdsKsWvlV79HLSjQ69gk8qBC1oWjTNukI"  # Fallback key
         )
         
         self.ai_enabled = bool(self.gemini_api_key and HAS_REQUESTS)
