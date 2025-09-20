@@ -12,10 +12,26 @@ A fully functioning command terminal built in Python that mimics the behavior of
 - **Utility Commands**: `echo`, `clear`, `history`, `help`
 
 ### Advanced Features
+- **System Monitoring**: Real-time CPU, memory, and process monitoring
 - **Error Handling**: Comprehensive error handling for invalid commands
 - **Command History**: Track and recall previous commands
-- **System Integration**: Real-time CPU, memory, and process monitoring
 - **Cross-Platform**: Works on Windows, macOS, and Linux
+- **CodeMate Integration**: Full compatibility with CodeMate Build and Extension
+
+### Enhanced Features (v1.2.0)
+- **Script Execution**: Execute Python, batch, and shell scripts directly
+  - `script.py [args]` - Execute Python script
+  - `script.bat [args]` - Execute batch file (Windows)
+  - `script.sh [args]` - Execute shell script (Unix)
+  - `run <script> [args]` - Generic script execution
+- **Command Aliases**: Create custom command shortcuts
+  - `alias ll=ls -la` - Create alias
+  - `alias` - Show all aliases
+- **Environment Variables**: Manage environment variables
+  - `env` - Show all environment variables
+  - `set VAR=value` - Set environment variable
+- **Session Logging**: Automatic session logging with timestamps
+  - Saves to `terminal_session.log` on exit
 
 ## Installation
 
